@@ -1,0 +1,19 @@
+Neural conduit code
+21 April 2021
+Author: Ben Mullet
+
+For sharing with YQ
+
+1) Make a python virtualenv
+   `python3 -m venv venv`
+
+2) Enter the virtualenv
+   `source venv/bin/activate`
+
+3) Install dependencies via pip
+   `pip install -r requirements.txt`
+
+4) Start jupyter lab
+   `jupyter lab`
+
+5) Run the code!
