@@ -2,7 +2,7 @@ Neural conduit code
 21 April 2021
 Author: Ben Mullet
 
-For sharing with YQ
+For sharing code with YQ
 
 1) Make a python virtualenv
    `python3 -m venv venv`
@@ -10,10 +10,42 @@ For sharing with YQ
 2) Enter the virtualenv
    `source venv/bin/activate`
 
-3) Install dependencies via pip
+3) Install matlab engine while inside the venv (instructions by Ying Qi Wong)
+
+   - Navigate to folder of Matlab app where python engine is located. 
+     On Mac, e.g.
+
+	cd /Applications/MATLAB_R2021a.app/extern/engines/python
+
+   - Try to set up the python engine by running
+        
+        python setup.py install
+
+     This probably won't work because you don't have permissions to write  
+     in this directory. Need to change permissions of the directory.
+     First go to upper level, change permissions of python directory to 
+     allow group to write changes. Then try to install again
+
+	cd .. 
+	sudo chmod 775 python
+	cd python
+	python setup.py install
+
+3) Upgrade pip
+  `pip install --upgrade pip setuptools wheel`
+
+4) Install dependencies via pip
    `pip install -r requirements.txt`
 
-4) Start jupyter lab
+5) Add your new environment as a kernel
+   `python -m ipykernel install --user --name=neural_conduit`
+
+6) Start jupyter lab
    `jupyter lab`
 
-5) Run the code!
+7) Open a notebook
+
+8) Enable our new kernel. Go to Kernel > Change Kernel... and select 
+   "neural_conduit"
+
+9) Run the code!
