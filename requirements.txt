@@ -5,3 +5,4 @@ jupyterlab==3.0.14
 pandas==1.1.2
 tensorboard==2.4.1
 tensorflow==2.4.1
+tqdm==4.60.0
