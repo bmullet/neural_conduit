@@ -28,11 +28,13 @@ def viscosity(h2o_d, phi_s_eta, gdot, m):
     gdot is strain rate
     """
     
+    eta = {}
+    
     h2o_arg = np.log10(h2o_d + 0.26)
     logeta_m = -4.43 + (7618.3 - 17.25*h2o_arg)/(m['T'] - 406.1 + (292.6*h2o_arg))
-    eta_m = np.power(10,logeta_m)
+    eta['melt'] = np.power(10,logeta_m)
     
-    if gdot == 0:
+    if np.any(gdot) == 0:
         #values from Costa 2005b and 2007b
         kappa   = 0.999916
         phistar = 0.673
@@ -52,11 +54,11 @@ def viscosity(h2o_d, phi_s_eta, gdot, m):
     
     top = (1. + np.power(phifr,delta))    #numerator
     efarg = 0.5*pih*phifr/kappa*(1. + np.power(phifr,gamma))  #error function argument
-    eta_phi = top/np.power((1. - kappa*sp.erf(efarg)), B*phistar)
+    eta['xtal'] = top/np.power((1. - kappa*sp.erf(efarg)), B*phistar)
 
-    eta = eta_m*eta_phi
+    eta['mix'] = eta['melt']*eta['xtal']
         
-    return eta, eta_m, eta_phi
+    return eta
 
 
 def density (p, phi_g, mh, m):
@@ -65,25 +67,41 @@ def density (p, phi_g, mh, m):
     """
     
     # get dissolved volatiles
-    h2o_d, co2_d, dh2o_d, dco2_d = solubility(p, mh, m)
+    h2o, co2 = solubility(p, mh, m)
     
-    c1  = 1/(1 - h2o_d - co2_d)
-    c2  = 1/(1 + h2o_d*c1*(m['rho_l']/m['rho_hd']) + co2_d*c1*(m['rho_l']/m['rho_cd']))
-    c12 = c1*c2
+    c       = {}
+    c['c1'] = 1/(1 - h2o['dissolved'] - co2['dissolved'])
+    c['c2'] = 1/(1 + h2o['dissolved']*c['c1']*(m['rho_l']/m['rho_hd']) + co2['dissolved']*c['c1']*(m['rho_l']/m['rho_cd']))
+    c12     = c['c1']*c['c2']
+    c['dc1'], c['dc2'] = c1c2_deriv(h2o, co2, c, m)
     
-    chi_s, dp, cf0, cf1, cf2 = solid_mass_frac(p*1e-6, m['pf'])
+    # solid mass, volume fractions
+    phi = {}
+    phi['chi_s'] = solid_mass_frac(p*1e-6, m['pf'])
+    phi['chi_s']['dchisdp'] = solid_mass_frac_deriv(phi['chi_s'])
     
-    phi_s = chi_s*m['rho_l']*c12*(1-phi_g)/(m['rho_s'] + chi_s*(c12*m['rho_l']-m['rho_s']))
-    phi_s_eta = phi_s/(1-phi_g)
+    chi_s    = phi['chi_s']['chi_s']
+    phi['s'] = chi_s*m['rho_l']*c12*(1-phi_g)/(m['rho_s'] + chi_s*(c12*m['rho_l']-m['rho_s']))
+    phi['l'] = (1 - phi['s'] - phi_g)*c['c2'] 
+    phi['dphis'], phi['dphil'] = phasefracs_deriv(phi_g, phi, phi['chi_s'], c, m)
     
-    phi_l = (1 - phi_s - phi_g)*c2 
-    rho_g = p*(mh/(m['Rw']*m['T']) + (1-mh)/(m['Rc']*m['T']))
+    rho = {}
+    rho['g']   = p*(mh/(m['Rw']*m['T']) + (1-mh)/(m['Rc']*m['T']))
+    rho['mix'] = m['rho_s']*phi['s'] + m['rho_l']*phi['l'] *c['c1'] + rho['g']*phi_g
+    rho['drhog'] = gasdensity_deriv(p, mh, m)
     
-    rho = m['rho_s']*phi_s + m['rho_l']*phi_l*c1 + rho_g*phi_g
-    
-    return rho, c1, c2, phi_s, phi_l, rho_g
+    return h2o, co2, c, phi, rho
     
 
+def exsolvedco2h2o(mh, m):
+    
+    gamma        = {}
+    gamma['g']   = (1 - mh)/(m['B']*mh)
+    gamma['dmh'] = 1/m['B']/np.power(1+gamma['g'],2)/np.power(mh,2)
+    #^ this is d/dmh of 1/(1+Gamma).   d/dmh of Gamma/(1+Gamma) is the negative of this
+    
+    return gamma
+    
 
 def solubility(p, mh, m):
     """
@@ -99,6 +117,10 @@ def solubility(p, mh, m):
     co2_d   dissolved co2 in ppm
     
     """
+    
+    # outputs
+    h2o = {}
+    co2 = {}
     
     # convert p to MPa
     p = 1e-6*p
@@ -134,10 +156,6 @@ def solubility(p, mh, m):
     h2o_d = (a1*sqrtPh + a2*Ph + a3*Ph15)/T + a4*Ph15 + Pc*(a5*sqrtPh + a6*Ph)
     co2_d = Pc*(b1 + b2*Ph)/T + Pc*(b3*sqrtPh + b4*Ph15)
     
-    # convert to mass fractions
-    h2o_d = 1e-2*h2o_d
-    co2_d = 1e-6*co2_d
-    
     # solubility derivatives
     # NB: there could easily be a typo here. CHECK AND CHECK AGAIN!!
     dh2odph = (a1*0.5*sqrtPhneg + a2 + a3*1.5*sqrtPh)/T + a4*1.5*sqrtPh + Pc*(a5*0.5*sqrtPhneg + a6)
@@ -145,21 +163,24 @@ def solubility(p, mh, m):
 
     dco2dph = Pc*b2/T + Pc*(b3*0.5*sqrtPhneg + b4*1.5*sqrtPh)
     dco2dpc = (b1 + b2*Ph)/T + (b3*sqrtPh + b4*Ph15)
+        
+    # convert to mass fractions for outputs
+    h2o['dissolved'] = 1e-2*h2o_d
+    co2['dissolved'] = 1e-6*co2_d
+    
+    h2o['dph'] = 1e-2*dh2odph
+    h2o['dpc'] = 1e-2*dh2odpc
+    
+    co2['dph'] = 1e-6*dco2dph
+    co2['dpc'] = 1e-6*dco2dpc
 
-    # convert to mass fraction
-    dh2o_d       = {}
-    dh2o_d['ph'] = 1e-2*dh2odph
-    dh2o_d['pc'] = 1e-2*dh2odpc
+    h2o, co2 = solubility_deriv(1e6*p, mh, h2o, co2, m)
     
-    dco2_d       = {}
-    dco2_d['ph'] = 1e-6*dco2dph
-    dco2_d['pc'] = 1e-6*dco2dpc
-    
-    return h2o_d, co2_d, dh2o_d, dco2_d
+    return h2o, co2
     
     
     
-def solubility_deriv (p, mh, dh2o_d, dco2_d, m):
+def solubility_deriv (p, mh, h2o, co2, m):
     """
     Derivatives for solubility mass fractions
     !!! Chain rule extravaganza !!!
@@ -174,13 +195,13 @@ def solubility_deriv (p, mh, dh2o_d, dco2_d, m):
     dpcdp  =  1e-6*(1-mh)
     dpcdmh = -1e-6*p
     
-    dh2o_d['p']  = dh2o_d['ph']*dphdp  + dh2o_d['pc']*dpcdp
-    dh2o_d['mh'] = dh2o_d['ph']*dphdmh + dh2o_d['pc']*dpcdmh
+    h2o['dp']  = h2o['dph']*dphdp  + h2o['dpc']*dpcdp
+    h2o['dmh'] = h2o['dph']*dphdmh + h2o['dpc']*dpcdmh
     
-    dco2_d['p']  = dco2_d['ph']*dphdp  + dco2_d['pc']*dpcdp
-    dco2_d['mh'] = dco2_d['ph']*dphdmh + dco2_d['pc']*dpcdmh
+    co2['dp']  = co2['dph']*dphdp  + co2['dpc']*dpcdp
+    co2['dmh'] = co2['dph']*dphdmh + co2['dpc']*dpcdmh
     
-    return dh2o_d, dco2_d
+    return h2o, co2
 
     
     
@@ -216,17 +237,93 @@ def solid_mass_frac(pMPA, pp):
     # check that there are no negative values at extremely high pressures
     chi_s[chi_s<0] = 0
     
-    return chi_s, dp, cf0, cf1, cf2
+    # collect variables into a dictionary
+    chi = {'chi_s':chi_s, 'dp':dp, 'cf0':cf0, 'cf1':cf1, 'cf2':cf2}
+    
+    return chi
 
 
 
-def solid_mass_frac_deriv (dp, cf0, cf1, cf2):
+def solid_mass_frac_deriv (chi):
     """ calculate derivative for solid mass fraction chi_s, which only depends on pressure"""
     
     # additional 1e-6 to account for pressures in MPa in dp
-    dchisdp = 1e-6*(3*cf0*np.power(dp,2) + 2*cf1*dp + cf2)
+    dchisdp = 1e-6*(3*chi['cf0']*np.power(chi['dp'],2) + 2*chi['cf1']*chi['dp'] + chi['cf2'])
     
     return dchisdp
+
+
+def c1c2_deriv (h2o, co2, c, m):
+    """
+    calculate derivatives for c1, c2 needed for density equation
+    !!! chain rule extravaganza !!!
+    """
+    
+    c1 = c['c1']
+    c2 = c['c2']
+    
+    dc1 = {}
+    dc2 = {}
+    
+    # derivatives for c1
+    c1_2       = c1*c1
+    dc1['dp']  = c1_2*(h2o['dp']  + co2['dp'] )
+    dc1['dmh'] = c1_2*(h2o['dmh'] + co2['dmh'])
+    
+    # derivatives for c2
+    rholhd = m['rho_l']/m['rho_hd']
+    rholcd = m['rho_l']/m['rho_cd']
+        
+    c2_2     = c2*c2
+        
+    dc2dh2od = -c2_2*(rholhd*(h2o['dissolved']*c1_2 + c1) + rholcd* co2['dissolved']*c1_2 )
+    dc2dco2d = -c2_2*(rholhd* h2o['dissolved']*c1_2       + rholcd*(co2['dissolved']*c1_2 + c1))
+    
+    dc2['dp']  = dc2dh2od*h2o['dp']  + dc2dco2d*co2['dp']
+    dc2['dmh'] = dc2dh2od*h2o['dmh'] + dc2dco2d*co2['dmh']
+   
+    return dc1, dc2
+
+
+def phasefracs_deriv (phi_g, phi, chi, c, m):
+    """
+    derivatives of phase fractions
+    !!! chain rule extravaganza !!!
+    """
+    
+    c12   = c['c1']*c['c2']
+    rhosl = m['rho_s']*m['rho_l']
+    
+    denom  = chi['chi_s']*(m['rho_l']*c12 - m['rho_s']) + m['rho_s']
+    denom2 = np.power(denom,2)
+    
+    dphisdchi =     c12*rhosl*(1-phi_g)/denom2
+    dphisdc1  = c['c2']*rhosl*(1-phi_g)*(1-chi['chi_s'])*chi['chi_s']/denom2
+    dphisdc2  = c['c1']*rhosl*(1-phi_g)*(1-chi['chi_s'])*chi['chi_s']/denom2
+    
+    # solid volume fraction derivs
+    dphis           = {}
+    dphis['dp']     = dphisdchi*chi['dchisdp'] + dphisdc1*c['dc1']['dp'] + dphisdc2*c['dc2']['dp']
+    dphis['dphi_g'] = -c12*m['rho_l']*chi['chi_s']/denom
+    dphis['dmh']    = dphisdc1*c['dc1']['dmh'] + dphisdc2*c['dc2']['dmh']
+    
+    # liquid volume fraction derivs
+    dphil           = {}
+    dphil['dp']     = -c['c2']*dphis['dp']  + (1 - phi['s'] - phi_g)*c['dc2']['dp']
+    dphil['dphi_g'] =  c['c2']*(-dphis['dphi_g'] - 1)
+    dphil['dmh']    = -c['c2']*dphis['dmh'] + (1 - phi['s'] - phi_g)*c['dc2']['dmh']
+    
+    return dphis, dphil
+
+
+
+def gasdensity_deriv(p, mh, m):
+    
+    drhog = {}
+    drhog['dp']  = mh/m['Rw']/m['T'] + (1-mh)/m['Rc']/m['T']
+    drhog['dmh'] = p*(1/m['Rw']/m['T'] - 1/m['Rc']/m['T'])
+    
+    return drhog
 
 
 def magmaperm (phi_g, degas, m):
@@ -239,77 +336,38 @@ def magmaperm (phi_g, degas, m):
 def wallperm (z, m):
     """calculate wall rock permeability from Manning and Ingebritsen [1999]"""
     
-    kwall = m['klw']['top'] / np.power(1e-3*np.absolute(z),m['klw']['mi'])
+    kwall = m['klw']['top'] / np.power(1e-3*(-z),m['klw']['mi'])
     
     return kwall
 
 
-def lateralperm (phi_g, degas, z, m):
-    """ Calculate lateral permeability, combination of wall rock and magma permeability"""
+def permeability (phi_g, degas, z, m):
+    """ Calculate vertical and lateral permeability, 
+    lateral is combination of wall rock and magma permeability"""
     
     kmag  = magmaperm(phi_g, degas, m)
     kwall = wallperm(z, m)
     klat  = (m['klw']['L']+m['R']) / (m['R']/kmag + m['klw']['L']/kwall)
+    
+    k = {}
+    k['vert'] = kmag
+    k['lat']  = klat
 
-    return klat
-
-
-def c1c2_deriv (h2o_d, co2_d, c1, c2, dh2o_d, dco2_d, m):
-    """
-    calculate derivatives for c1, c2 needed for density equation
-    !!! chain rule extravaganza !!!
-    """
-    
-    dc1 = {}
-    dc2 = {}
-    
-    # derivatives for c1
-    c1_2      = c1*c1
-    dc1['p']  = c1_2*(dh2o_d['p']  + dco2_d['p'] )
-    dc1['mh'] = c1_2*(dh2o_d['mh'] + dco2_d['mh'])
-    
-    # derivatives for c2
-    rholhd = m['rho_l']/m['rho_hd']
-    rholcd = m['rho_l']/m['rho_cd']
-        
-    c2_2     = c2*c2
-        
-    dc2dh2od = -c2_2*(rholhd*(h2o_d*c1_2 + c1) + rholcd*co2_d*c1_2 )
-    dc2dco2d = -c2_2*(rholhd*h2o_d*c1_2       + rholcd*(co2_d*c1_2 + c1))
-    
-    dc2['p']  = dc2dh2od*dh2o_d['p']  + dc2dco2d*dco2_d['p']
-    dc2['mh'] = dc2dh2od*dh2o_d['mh'] + dc2dco2d*dco2_d['mh']
-   
-    return dc1, dc2, dc2dh2od, dc2dco2d
+    return k
 
 
-def phasefracs_deriv (phi_s, phi_g, chi_s, c1, c2, dchisdp, dc1, dc2, m):
-    """
-    derivatives of phase fractions
-    !!! chain rule extravaganza !!!
-    """
+def gasvels (p, phi_g, dpdz, degas, z, m):
     
-    c12   = c1*c2
-    rhosl = m['rho_s']*m['rho_l']
+    gvel = {}
     
-    denom  = chi_s*(m['rho_l']*c12 - m['rho_s']) + m['rho_s']
-    denom2 = np.power(denom,2)
+    k = permeability(phi_g, degas, z, m)
+    phyd = m['phydro']['slope']*(-z)
     
-    dphisdchi = c12*rhosl*(1-phi_g)/denom2
-    dphisdc1  =  c2*rhosl*(1-phi_g)*(1-chi_s)*chi_s/denom2
-    dphisdc2  =  c1*rhosl*(1-phi_g)*(1-chi_s)*chi_s/denom2
+    gvel['vg'] = {'vel': -k['vert']/m['eta_g']*dpdz}
+    gvel['ug'] =  k['lat']/m['eta_g']*(p - phyd)/(m['klw']['L'] + m['R'])
     
-    # solid volume fraction derivs
-    dphis          = {}
-    dphis['p']     = dphisdchi*dchisdp + dphisdc1*dc1['p'] + dphisdc2*dc2['p']
-    dphis['phi_g'] = -c12*m['rho_l']*chi_s/denom
-    dphis['mh']    = dphisdc1*dc1['mh'] + dphisdc2*dc2['mh']
+    gvel['vg']['dp']     = -k['vert']/m['eta_g']*degas
+    gvel['vg']['dphi_g'] = -1/m['eta_g']*dpdz*3*m['kc']*np.power(phi_g,2)*degas
     
-    # liquid volume fraction derivs
-    dphil          = {}
-    dphil['p']     = -c2*dphis['p'] + (1 - phi_s - phi_g)*dc2['p']
-    dphil['phi_g'] =  c2*(-dphis['phi_g'] - 1)
-    dphil['mh']    = -c2*dphis['mh'] + (1 - phi_s - phi_g)*dc2['mh']
+    return gvel
     
-    return dphis, dphil
-
