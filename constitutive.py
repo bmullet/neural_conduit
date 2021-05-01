@@ -1,5 +1,7 @@
 import numpy as np
 from scipy import special as sp
+from scipy.optimize import fsolve
+import copy
 
 
 
@@ -15,6 +17,32 @@ def mat_to_py(var):
         val = val.T
     return val
 
+
+
+def reformat_params (m):
+    """
+    output m dictionary from smf or tdc is a bit tedious for what we want here. 
+    Need to clean up a few things to make sure that m is suitable for use in ssc in domegoveqn
+    
+    Input : m structure from ss['m']
+    Output: slightly reformatted dictionary of m for use in ssc in domegoveqn
+    """
+    
+    mout = copy.deepcopy(m)
+    
+    mout.pop('pf', None)
+    mout.pop('chi_ch', None)
+    
+    mout['pf'] = {}
+    mout['pf']['breaks'] = mat_to_py(m['pf']['pp']['breaks'])
+    mout['pf']['coefs']  = mat_to_py(m['pf']['pp']['coefs'])
+    
+    mout['chi_ch'] = {'h2o':m['chi_ch']['total']['h2o'], 'co2':m['chi_ch']['total']['co2']}
+    
+    mout['kc'] = m['k_lat']
+    mout['fr']['A'] = 2*m['fr']['v_ref']*np.exp(-m['fr']['f0']/m['fr']['a'])   # prefactor in MBE
+
+    return mout
 
 
 def viscosity(h2o_d, phi_s_eta, gdot, m):
@@ -34,18 +62,11 @@ def viscosity(h2o_d, phi_s_eta, gdot, m):
     logeta_m = -4.43 + (7618.3 - 17.25*h2o_arg)/(m['T'] - 406.1 + (292.6*h2o_arg))
     eta['melt'] = np.power(10,logeta_m)
     
-    if np.any(gdot) == 0:
-        #values from Costa 2005b and 2007b
-        kappa   = 0.999916
-        phistar = 0.673
-        gamma   = 3.98937
-        delta   = 16.9386
-    else:
-        # strain-rate dependent values from Costa 2005 and Caricchi 2007
-        phistar = -0.066499*np.tanh(0.913424*np.log10(gdot)+3.850623) + 0.591806
-        delta   = -6.301095*np.tanh(0.818496*np.log10(gdot)+2.86)     + 7.462405
-        kappa   = -0.000378*np.tanh(1.148101*np.log10(gdot)+3.92)     + 0.999572
-        gamma   =  3.987815*np.tanh(0.890800*np.log10(gdot)+3.24)     + 5.099645
+    # strain-rate dependent values from Costa 2005 and Caricchi 2007
+    phistar = -0.066499*np.tanh(0.913424*np.log10(gdot)+3.850623) + 0.591806
+    delta   = -6.301095*np.tanh(0.818496*np.log10(gdot)+2.86)     + 7.462405
+    kappa   = -0.000378*np.tanh(1.148101*np.log10(gdot)+3.92)     + 0.999572
+    gamma   =  3.987815*np.tanh(0.890800*np.log10(gdot)+3.24)     + 5.099645
         
     pih = np.sqrt(np.pi)
     B   = 2.5
@@ -97,8 +118,13 @@ def exsolvedco2h2o(mh, m):
     
     gamma        = {}
     gamma['g']   = (1 - mh)/(m['B']*mh)
+    
+    # precalculate gamma factors for h and c 
+    gamma['h']   = 1/(1+gamma['g'])
+    gamma['c']   = gamma['g']/(1+gamma['g'])
+    
     gamma['dmh'] = 1/m['B']/np.power(1+gamma['g'],2)/np.power(mh,2)
-    #^ this is d/dmh of 1/(1+Gamma).   d/dmh of Gamma/(1+Gamma) is the negative of this
+    # ^^ this is d/dmh of 1/(1+Gamma).   d/dmh of Gamma/(1+Gamma) is the negative of this
     
     return gamma
     
@@ -164,7 +190,8 @@ def solubility(p, mh, m):
     dco2dph = Pc*b2/T + Pc*(b3*0.5*sqrtPhneg + b4*1.5*sqrtPh)
     dco2dpc = (b1 + b2*Ph)/T + (b3*sqrtPh + b4*Ph15)
         
-    # convert to mass fractions for outputs
+    # convert to mass fractions for outputs. 
+    # NB this is different from tdcFV where the output is in wt% and ppm
     h2o['dissolved'] = 1e-2*h2o_d
     co2['dissolved'] = 1e-6*co2_d
     
@@ -324,6 +351,46 @@ def gasdensity_deriv(p, mh, m):
     drhog['dmh'] = p*(1/m['Rw']/m['T'] - 1/m['Rc']/m['T'])
     
     return drhog
+
+
+
+def chambervolatiles (m):
+    
+    mh_ch = fsolve(chamber_mh, 0.9, args=(m,))
+    
+    h2o, co2 = solubility(m['p_ch'], mh_ch, m)
+    
+    h2o['exsolved'] = 1e-2*m['chi_ch']['h2o'] - h2o['dissolved']
+    co2['exsolved'] = 1e-6*m['chi_ch']['co2'] - co2['dissolved']
+    total_exsolved  = h2o['exsolved'] + co2['exsolved']
+    
+    c1 = 1/(1 - h2o['dissolved'] - co2['dissolved'])
+    c2 = 1/(1 + h2o['dissolved']*c1*(m['rho_l']/m['rho_hd']) + co2['dissolved']*c1*(m['rho_l']/m['rho_cd']))
+    c12 = c1*c2
+    
+    chi = solid_mass_frac(1e-6*np.array(m['p_ch']).reshape(1,1), m['pf'])
+    rho_g = m['p_ch']*(mh_ch/(m['Rw']*m['T']) + (1-mh_ch)/(m['Rc']*m['T']))
+    
+    d = (total_exsolved*m['rho_l']*c12) * (1 - chi['chi_s']*m['rho_l']*c12 / (m['rho_s'] + chi['chi_s']*(c12*m['rho_l'] - m['rho_s'])))
+    phi_g_ch = d / (rho_g + d)
+    
+    return mh_ch, phi_g_ch
+
+
+def chamber_mh (mh, m):
+    # non-linear equation for mh in chamber
+    
+    gamma    = (1-mh)/(m['B']*mh)
+    h2o, co2 = solubility(m['p_ch'], mh, m)
+    
+    h2o['exsolved'] = 1e-2*m['chi_ch']['h2o'] - h2o['dissolved']
+    co2['exsolved'] = 1e-6*m['chi_ch']['co2'] - co2['dissolved']
+    
+    residual = gamma*h2o['exsolved'] - co2['exsolved']
+    
+    return residual
+
+
 
 
 def magmaperm (phi_g, degas, m):
