@@ -56,10 +56,7 @@ def ssc (z, var, grad, m):
     J[:, m['vi']['p'], m['vi']['pz']]     = vrshp*msl['dp']
     J[:, m['vi']['p'], m['vi']['phi_gz']] = vrshp*msl['dphi_g']
     J[:, m['vi']['p'], m['vi']['mhz']]    = vrshp*msl['dmh']
-    
-    
-    
-    
+
     # water, separate into liquid and gas parts for slightly more intelligible code
     mh2o = {'l': { }, 'g': { }, 'plug':{}}
 

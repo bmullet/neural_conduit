@@ -1,5 +1,11 @@
 Outstanding issues (list in reverse date order)
 
+5 May 2021 (BM)
+- implemented loss function for F(nu,z) = 0 format
+- implemented BCs loss
+- added data_handler.model_params object property to store output structure from model (ss['m'])
+- need to work on data generator for multiple runs, caching data, tf code for tf dataset management
+
 1 May 2021 (YQ)
 - completed ssc equations, debugged as much as I can 
 

@@ -6,11 +6,17 @@ import copy
 
 
 def mat_to_py(var):
-    # converts matlab arrays to numpy arrays and makes sure everything is shape Nx1
+    """
+    converts matlab arrays to numpy arrays and makes sure everything is shape Nx1
+    """ 
+    
     val = np.array(var)
+    
+    assert len(val.shape) <= 2, "too many dims to conver to Nx1"
+    
     if len(val.shape) < 2:
         val = val[:,np.newaxis]
-        
+    
     L, W = val.shape
 
     if L < W:
