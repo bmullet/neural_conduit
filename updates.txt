@@ -1,5 +1,9 @@
 Outstanding issues (list in reverse date order)
 
+6 May 2021 (YQ)
+- rewrote ssc in domegoveqn.py in F(nu,z) form with assigned bcs
+- I plan to do a test run neural_tdc
+
 5 May 2021 (BM)
 - implemented loss function for F(nu,z) = 0 format
 - implemented BCs loss
@@ -8,10 +12,7 @@ Outstanding issues (list in reverse date order)
 
 1 May 2021 (YQ)
 - completed ssc equations, debugged as much as I can 
-
 - we can use the output structure from the model (i.e. ss['m']) to initialise the model parameter structure for get_physics. But this requires a bit of reformatting which can be done with reformat_params(m) in constitutive.py
-
 - how to implement boundary conditions?
-
 - write out physics-informed loss function so YQ can improve ssc code organisation. Issue with dp/dz appearing in mbe in a non-linear way.
 
