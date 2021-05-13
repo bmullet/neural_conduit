@@ -1,5 +1,10 @@
 Outstanding issues (list in reverse date order)
 
+13 May 2021 (BM)
+- Finished new dataset loading scheme, integrated into the conduit model
+- Batch training will allow for learning across model params
+- Training is slow. Need to investigate why.
+
 12 May 2021 (BM)
 - Added utils.py for utility functions
 - Started switch to steady state model
