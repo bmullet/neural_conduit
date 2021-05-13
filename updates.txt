@@ -1,5 +1,11 @@
 Outstanding issues (list in reverse date order)
 
+12 May 2021 (BM)
+- Added utils.py for utility functions
+- Started switch to steady state model
+- Build new classes for data handling which will allow for creation of tf.datasets for batching
+- Design of tf.dataset anticipates data structures required in physics calculation
+
 6 May 2021 (YQ)
 - rewrote ssc in domegoveqn.py in F(nu,z) form with assigned bcs
 - I plan to do a test run neural_tdc
