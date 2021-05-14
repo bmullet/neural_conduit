@@ -33,7 +33,7 @@ def get_steady_state_vars_and_grads(ss):
       grads: dict of gradients
     """
     
-    conduit_var_indices = {"p" : 0 ,"v" : 1, "phi_g" : 2, "mw" : 3}
+    conduit_var_indices = {"p" : 0 ,"v" : 1, "phi_g" : 2, "mh" : 3}
     
     var_dict = {}
     grad_dict = {}

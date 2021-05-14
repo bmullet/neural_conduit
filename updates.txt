@@ -1,5 +1,13 @@
 Outstanding issues (list in reverse date order)
 
+14 May 2021 (YQ)
+- changed var names mw --> mh
+- one main issue: the input modelparams to get_physics should be opts, 
+not model_params (model_params contains only the 12 parameters that we want to 
+constrain, but the solver requires a lot more information that is contained
+in opts), so that's why the physics_loss calculation is not working yet.
+
+
 13 May 2021 (BM)
 - Finished new dataset loading scheme, integrated into the conduit model
 - Batch training will allow for learning across model params

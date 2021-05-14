@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import special as sp
-from constitutive import *
+import constitutive
+import utils
 
 
 
@@ -20,10 +21,10 @@ def ssc (z, var, grad, m):
     F  = np.zeros((Nz,4))
     
     # necessary constitutive relations
-    h2o, co2, c, phi, rho = density(var['p'], var['phi_g'], var['mh'], m)
-    gamma = exsolvedco2h2o(var['mh'],m)
+    h2o, co2, c, phi, rho = constitutive.density(var['p'], var['phi_g'], var['mh'], m)
+    gamma = constitutive.exsolvedco2h2o(var['mh'],m)
     degas = 1.
-    gvel  = gasvels(var['p'], var['phi_g'], grad['p']['z'], degas, z, m)
+    gvel  = constitutive.gasvels(var['p'], var['phi_g'], grad['p']['z'], degas, z, m)
     
     
     # mbe--------------------------------------------------------------------------------
@@ -139,7 +140,7 @@ def mbe_vals (z, v, phi_g, dpdz, h2o_d, phi, rho, m):
     sig_c = m['sig']['slope']*(-z) + m['sig']['offset']
     gdot  = 2*np.absolute(v)/m['R']
     
-    eta   = viscosity(h2o_d, phi_s_eta, gdot, m)
+    eta   = constitutive.viscosity(h2o_d, phi_s_eta, gdot, m)
     tau_R = -0.5*m['R']*(dpdz + rho*m['g'])
     
     vfr = m['fr']['A']*np.sinh(tau_R/m['fr']['a']/sig_c)
@@ -151,7 +152,7 @@ def mbe_vals (z, v, phi_g, dpdz, h2o_d, phi, rho, m):
 
 def assign_bcs (F, var, m):
     
-    mh_ch, phi_g_ch = chambervolatiles(m)
+    mh_ch, phi_g_ch = constitutive.chambervolatiles(m)
     
     F[ 0,m['vi']['p']]     = var['p'][ 0]    - m['p_ch']
     F[-1,m['vi']['v']]     = var['p'][-1]    - m['p_top']
@@ -159,19 +160,6 @@ def assign_bcs (F, var, m):
     F[ 0,m['vi']['mh']]    = var['mh'][0]    - mh_ch
     
     
-    return pch, patm, mh_ch, phi_g_ch
+    return F
     
     
-    
-def mrshp (m, Nz):
-    m['dp']     = m['dp'].reshape(Nz)
-    m['dphi_g'] = m['dphi_g'].reshape(Nz)
-
-    if 'dv' in m:
-        m['dv']    = m['dv'].reshape(Nz)
-        
-    if 'dmh' in m:
-        m['dmh']    = m['dmh'].reshape(Nz)
-    
-    return m
-

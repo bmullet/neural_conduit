@@ -1,27 +1,9 @@
 import numpy as np
 from scipy import special as sp
 from scipy.optimize import fsolve
+import utils
 import copy
 
-
-
-def mat_to_py(var):
-    """
-    converts matlab arrays to numpy arrays and makes sure everything is shape Nx1
-    """ 
-    
-    val = np.array(var)
-    
-    assert len(val.shape) <= 2, "too many dims to conver to Nx1"
-    
-    if len(val.shape) < 2:
-        val = val[:,np.newaxis]
-    
-    L, W = val.shape
-
-    if L < W:
-        val = val.T
-    return val
 
 
 
@@ -40,8 +22,8 @@ def reformat_params (m):
     mout.pop('chi_ch', None)
     
     mout['pf'] = {}
-    mout['pf']['breaks'] = mat_to_py(m['pf']['pp']['breaks'])
-    mout['pf']['coefs']  = mat_to_py(m['pf']['pp']['coefs'])
+    mout['pf']['breaks'] = utils.mat_to_py(m['pf']['pp']['breaks'])
+    mout['pf']['coefs']  = utils.mat_to_py(m['pf']['pp']['coefs'])
     
     mout['chi_ch'] = {'h2o':m['chi_ch']['total']['h2o'], 'co2':m['chi_ch']['total']['co2']}
     
@@ -252,7 +234,7 @@ def solid_mass_frac(pMPA, pp):
     tmp = np.all([pMPA>=ppbreak[0,:-1], pMPA<ppbreak[0,1:]], axis=0)
     
     # gather index of polynomial for each pressure in pMPA
-    chi_ind = mat_to_py(np.argmax(tmp, axis=1))
+    chi_ind = utils.mat_to_py(np.argmax(tmp, axis=1))
     
     # make dp and coef matrices of size pMPA. Can't figure out how to make the coeffs in one line
     dp  = pMPA - pp['breaks'][chi_ind,0]
