@@ -3,6 +3,7 @@ Utility functions
 """
 
 import numpy as np
+import tensorflow as tf
 
 
 def mat_to_py(var):
@@ -49,6 +50,7 @@ def get_steady_state_vars_and_grads(ss):
     var_dict["z"] = -mat_to_py(ss["z"])
     
     return var_dict, grad_dict
-    
+
+
     
     

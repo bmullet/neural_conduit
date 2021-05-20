@@ -3,6 +3,7 @@ from scipy import special as sp
 from scipy.optimize import fsolve
 import utils
 import copy
+import tensorflow as tf
 
 
 
@@ -247,10 +248,11 @@ def solid_mass_frac(pMPA, pp):
     chi_s = cf0*np.power(dp,3) + cf1*np.power(dp,2) + cf2*dp + cf3
     
     # check at low pressure, chi_s = 1
-    chi_s[pMPA<pp['breaks'][ 0]] = pp['coefs'][0,3]
-    
+    chi_s = tf.where(pMPA<pp['breaks'][0], pp['coefs'][0,3], chi_s )
+       
     # check that there are no negative values at extremely high pressures
-    chi_s[chi_s<0] = 0
+    keep_index = tf.cast(chi_s>0, tf.float32)  
+    chi_s = chi_s*keep_index
     
     # collect variables into a dictionary
     chi = {'chi_s':chi_s, 'dp':dp, 'cf0':cf0, 'cf1':cf1, 'cf2':cf2}

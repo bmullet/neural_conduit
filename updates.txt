@@ -1,5 +1,10 @@
 Outstanding issues (list in reverse date order)
 
+20 May 2021 (BM)
+- changed data loading scheme to make it possible to pass opts
+- updated a couple functions in constitutive.py and domegoveqn.py to deal
+  with tensor indexing problem, but it's still a problem... 
+
 14 May 2021 (YQ)
 - changed var names mw --> mh
 - one main issue: the input modelparams to get_physics should be opts, 

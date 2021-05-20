@@ -1,7 +1,9 @@
 import numpy as np
 from scipy import special as sp
 import constitutive
+import tensorflow as tf
 import utils
+
 
 
 
@@ -17,21 +19,37 @@ def ssc (z, var, grad, m):
     """
     
     Nz = len(z)
-    J  = np.zeros((Nz,4,8))
-    F  = np.zeros((Nz,4))
+    J  = tf.zeros((Nz,4,8))
+    
+    F  = tf.zeros((Nz,4))
+    
+    # Some helper functions
+    # Get a new (all zeros) mask of F
+    F_mask = lambda: np.zeros_like(F)
+    # Convert (probably a mask) to tensorflow
+    np_to_tf = lambda tensor: tf.constant(tensor, dtype=tf.float32)
     
     # necessary constitutive relations
     h2o, co2, c, phi, rho = constitutive.density(var['p'], var['phi_g'], var['mh'], m)
     gamma = constitutive.exsolvedco2h2o(var['mh'],m)
     degas = 1.
     gvel  = constitutive.gasvels(var['p'], var['phi_g'], grad['p']['z'], degas, z, m)
-    
-    
+       
     # mbe--------------------------------------------------------------------------------
     mbe = mbe_vals(z, var['v'], var['phi_g'], grad['p']['z'], 100*h2o['dissolved'], phi, rho['mix'], m)
     
-    F[:, m['vi']['v']] = var['v'].reshape(Nz) - mbe['vv'].reshape(Nz) - mbe['vfr'].reshape(Nz)
+    # What we want to do, but tensorflow is dumb
+    #F[:, m['vi']['v']] = tf.reshape(var['v'] - mbe['vv'] - mbe['vfr'], [Nz])
     
+    # How we can do it instead
+    # Get new mask
+    mask = F_mask()
+    mask[:, m['vi']['v']] = 1.0 #index assingment OK on numpy array
+    mask = np_to_tf(mask)
+    
+    update = tf.reshape(var['v'] - mbe['vv'] - mbe['vfr'], [Nz]) 
+    
+    F = F + mask*update # update is 1-D while mask is 2-D, so update will broadcast
     
     # continuity------------------------------------------------------------------------
         
