@@ -51,8 +51,8 @@ def ssc (z, var, grad, m):
     mbeupdate = tf.reshape(var['v'] - mbe['vv'] - mbe['vfr'], [Nz,1]) 
     
     # check for bad values
-    mbeupdate = tf.where(tf.math.is_nan(mbeupdate), 1e8, mbeupdate)
-    mbeupdate = tf.where(tf.math.is_inf(mbeupdate), 1e8, mbeupdate)
+    #mbeupdate = tf.where(tf.math.is_nan(mbeupdate), 1e8, mbeupdate)
+    #mbeupdate = tf.where(tf.math.is_inf(mbeupdate), 1e8, mbeupdate)
     
     F = F + mbemask*mbeupdate # update is 1-D while mask is 2-D, so update will broadcast
     
@@ -79,7 +79,7 @@ def ssc (z, var, grad, m):
     mh2oplugupdate = tf.reshape(mh2o['plug']['total'], [Nz,1])
     
     # check if we are in the plug
-    mh2oupdate = tf.where((mbe['vv']/(mbe['vv']+mbe['vfr']) < m['newtonian']['vvfrac_thr']), mh2oplugupdate, mh2oviscupdate)
+    mh2oupdate = tf.where((mbe['vv']/(mbe['vv']+mbe['vfr']) < m['vvfrac_thr']), mh2oplugupdate, mh2oviscupdate)
     
     F = F + mh2omask*mh2oupdate
     
@@ -94,18 +94,17 @@ def ssc (z, var, grad, m):
     mco2viscupdate = tf.reshape(mco2['l']['total'] + mco2['g']['total'] + mco2['vg']['total'] +  mco2['ug'], [Nz,1])
     mco2plugupdate = tf.reshape(mco2['plug']['total'], [Nz,1])
     
-    mco2update = tf.where((mbe['vv']/(mbe['vv']+mbe['vfr']) < m['newtonian']['vvfrac_thr']), mco2plugupdate, mco2viscupdate)
+    mco2update = tf.where((mbe['vv']/(mbe['vv']+mbe['vfr']) < m['vvfrac_thr']), mco2plugupdate, mco2viscupdate)
     
     F = F + mco2mask*mco2update
-    
-    # TO DO: do I need to deal with bcs?
-    
+        
     return F
 
 
 
     
 def assign_bcs (F, var, m):
+    # this is a legacy function that I used for assigning BCs, but we don't need this in physics loss
     
     mh_ch, phi_g_ch = constitutive.chambervolatiles(m)
     

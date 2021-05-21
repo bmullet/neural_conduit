@@ -19,8 +19,23 @@ def reformat_params (m):
     
     mout = copy.deepcopy(m)
     
-    mout.pop('pf', None)
+    # clean up and get rid of useless stuff
+    mout.pop('pf'    , None)
     mout.pop('chi_ch', None)
+    mout.pop('slv'   , None)
+    mout.pop('ys'    , None)
+    mout.pop('expn'  , None)
+    mout.pop('eta'   , None)
+    mout.pop('L_diff', None)
+    mout.pop('blk'   , None)
+    mout.pop('sy'    , None)
+    mout.pop('syp'   , None)
+    mout.pop('sF'    , None)
+    mout.pop('k_lat_model', None)
+    mout.pop('use_k_vert' , None)
+    mout.pop('newtonian'  , None)
+    mout.pop('v_ch_guess' , None)
+    mout.pop('use_phi_s_ratio', None)
     
     # reassign the terms for solid mass fraction
     mout['pf'] = {}
@@ -31,6 +46,7 @@ def reformat_params (m):
     
     mout['kc'] = m['k_lat']
     mout['fr']['A'] = 2*m['fr']['v_ref']*np.exp(-m['fr']['f0']/m['fr']['a'])   # prefactor in MBE
+    mout['vvfrac_thr'] = m['newtonian']['vvfrac_thr']
     
     # contains ordering of variables in F
     mout['vi'] = {'p':0, 'v':1, 'phi_g':2, 'mh':3, 'pz':4, 'vz':5, 'phi_gz':6, 'mhz':7}
@@ -398,7 +414,8 @@ def magmaperm (phi_g, degas, m):
 def wallperm (z, m):
     """calculate wall rock permeability from Manning and Ingebritsen [1999]"""
     
-    kwall = m['klw']['top'] / np.power(1e-3*(-z),m['klw']['mi'])
+    # add 1e-10 to stabilise to avoid dividing by zero
+    kwall = m['klw']['top'] / np.power(1e-3*(-z+1e-5),m['klw']['mi'])
     
     return kwall
 

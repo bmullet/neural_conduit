@@ -1,5 +1,16 @@
 Outstanding issues (list in reverse date order)
 
+21 May 2021 (YQ)
+- fixed tensorflow indexing issues, thanks for figuring out the functions!
+  Code now runs past first physics_loss
+- stabilised divide by zero in wallperm in constitutive.py. When z=0, 
+  divide by zero encountered. Fixed problem by adding a small value 
+  i.e. z + 1e-5, much smaller than dz
+- since we are using reformat_params already, I decided to use it to 
+  clean up opts and discard unnecessary variables
+- TODO: set non-negative conditions for p,v; set condition for phi_g, mh
+  to be between (0,1)
+
 20 May 2021 (BM)
 - changed data loading scheme to make it possible to pass opts
 - updated a couple functions in constitutive.py and domegoveqn.py to deal
