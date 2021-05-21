@@ -22,6 +22,7 @@ def reformat_params (m):
     mout.pop('pf', None)
     mout.pop('chi_ch', None)
     
+    # reassign the terms for solid mass fraction
     mout['pf'] = {}
     mout['pf']['breaks'] = utils.mat_to_py(m['pf']['pp']['breaks'])
     mout['pf']['coefs']  = utils.mat_to_py(m['pf']['pp']['coefs'])
@@ -30,6 +31,9 @@ def reformat_params (m):
     
     mout['kc'] = m['k_lat']
     mout['fr']['A'] = 2*m['fr']['v_ref']*np.exp(-m['fr']['f0']/m['fr']['a'])   # prefactor in MBE
+    
+    # contains ordering of variables in F
+    mout['vi'] = {'p':0, 'v':1, 'phi_g':2, 'mh':3, 'pz':4, 'vz':5, 'phi_gz':6, 'mhz':7}
 
     return mout
 
@@ -248,6 +252,7 @@ def solid_mass_frac(pMPA, pp):
     chi_s = cf0*np.power(dp,3) + cf1*np.power(dp,2) + cf2*dp + cf3
     
     # check at low pressure, chi_s = 1
+    # interpretation: if condition is true, take from x; if false take from y
     chi_s = tf.where(pMPA<pp['breaks'][0], pp['coefs'][0,3], chi_s )
        
     # check that there are no negative values at extremely high pressures
