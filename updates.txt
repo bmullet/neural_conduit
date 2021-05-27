@@ -1,5 +1,9 @@
 Outstanding issues (list in reverse date order)
 
+27 May 2021 (BM)
+- fixed gradients. Pretty sure they are calculated correctly now. I plot them during training so we can inspect.
+- loss explodes when switching to physics loss. Not sure if that's a neural net problem or a physics code problem. Needs more investigating!
+
 26 May 2021 (BM)
 - fixed data normalization
 - fixed last layer activation function to enfore constraints on conduit variables
