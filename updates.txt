@@ -1,5 +1,10 @@
 Outstanding issues (list in reverse date order)
 
+26 May 2021 (BM)
+- fixed data normalization
+- fixed last layer activation function to enfore constraints on conduit variables
+- TODO(BM): check to make sure gradients are calculated correctly after normalization procedure
+
 21 May 2021 (YQ)
 - fixed tensorflow indexing issues, thanks for figuring out the functions!
   Code now runs past first physics_loss
