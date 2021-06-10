@@ -129,8 +129,14 @@ def mbe_vals (z, v, phi_g, dpdz, h2o_d, phi, rho, m):
     eta   = constitutive.viscosity(h2o_d, phi_s_eta, gdot, m)
     tau_R = -0.5*m['R']*(dpdz + rho*m['g'])
     
-    vfr = m['fr']['A']*np.sinh(tau_R/m['fr']['a']/sig_c)
     vv  = tau_R*m['R']/4/eta['mix']
+    vfr = m['fr']['A']*np.sinh(tau_R/m['fr']['a']/sig_c)
+    
+    # cap vfr at 1 so that sinh function doesn't blow up ridiculously. Beyond this, vfr increases linearly with tauR
+    # interpretation: if condition is true, take from x; if false take from y
+    #alpha = 1/m['fr']['A'] - np.arcsinh(1/m['fr']['A']);
+    #vfrlin = m['fr']['A']*(alpha + tau_R/m['fr']['a']/sig_c)
+    #vfr = tf.where(vfr1<1, vfr1, vfrlin)
     
     mbe = {'vfr': vfr, 'eta':eta['mix'], 'vv':vv, 'tau_R':tau_R}
     

@@ -1,5 +1,14 @@
 Outstanding issues (list in reverse date order)
 
+10 Jun 2021 (YQ)
+- normalised [ bc_loss = (y - y_true)/y_true ] to ensure variables on the 
+  same scale. Previously large physics_loss due to bc_loss in pressure bc.
+- discovered large physics_loss in the velocity equation.
+  mean F for each equation ~ [1e-10, 1e2, 1e-11, 1e-10]. 
+  Tried using a small (1e-10, 1e-12) loss multiplier for velocity equation
+  but doesn't seem to help - loss does not decrease.
+  TODO: somehow need to scale the physics loss in an intelligent way... 
+
 27 May 2021 (BM)
 - fixed gradients. Pretty sure they are calculated correctly now. I plot them during training so we can inspect.
 - loss explodes when switching to physics loss. Not sure if that's a neural net problem or a physics code problem. Needs more investigating!
@@ -28,9 +37,9 @@ Outstanding issues (list in reverse date order)
 14 May 2021 (YQ)
 - changed var names mw --> mh
 - one main issue: the input modelparams to get_physics should be opts, 
-not model_params (model_params contains only the 12 parameters that we want to 
-constrain, but the solver requires a lot more information that is contained
-in opts), so that's why the physics_loss calculation is not working yet.
+  not model_params (model_params contains only the 12 parameters that we want to 
+  constrain, but the solver requires a lot more information that is contained
+  in opts), so that's why the physics_loss calculation is not working yet.
 
 
 13 May 2021 (BM)
