@@ -445,8 +445,5 @@ def gasvels (p, phi_g, dpdz, degas, z, m):
     gvel['vg'] = {'vel': -k['vert']/m['eta_g']*dpdz}
     gvel['ug'] =  k['lat']/m['eta_g']*(p - phyd)/(m['klw']['L'] + m['R'])
     
-    gvel['vg']['dp']     = -k['vert']/m['eta_g']*degas
-    gvel['vg']['dphi_g'] = -1/m['eta_g']*dpdz*3*m['kc']*np.power(phi_g,2)*degas
-    
-    return gvel
+    return gvel, k
     

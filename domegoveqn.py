@@ -33,7 +33,7 @@ def ssc (z, var, grad, m):
     h2o, co2, c, phi, rho = constitutive.density(var['p'], var['phi_g'], var['mh'], m)
     gamma = constitutive.exsolvedco2h2o(var['mh'],m)
     degas = 1.0
-    gvel  = constitutive.gasvels(var['p'], var['phi_g'], grad['p']['z'], degas, z, m)
+    gvel, k  = constitutive.gasvels(var['p'], var['phi_g'], grad['p']['z'], degas, z, m)
     
     
     # mbe--------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ def ssc (z, var, grad, m):
     
     
     # continuity for water
-    mh2o =  h2ocont(var, grad, rho, phi, h2o, c, gamma, gvel, m)
+    mh2o =  h2ocont(var, grad, rho, phi, h2o, c, gamma, gvel, k, m)
     
     mh2omask = F_mask()
     mh2omask[:,m['vi']['phi_g']] = 1.0
@@ -85,7 +85,7 @@ def ssc (z, var, grad, m):
     
     
     # continuity for co2
-    mco2 = co2cont (var, grad, rho, phi, h2o, c, gamma, gvel, m)
+    mco2 = co2cont (var, grad, rho, phi, h2o, c, gamma, gvel, k, m)
     
     mco2mask = F_mask()
     mco2mask[:,m['vi']['mh']] = 1.0
@@ -165,7 +165,7 @@ def slcont (var, grad, phi, m):
 
 
 
-def h2ocont (var, grad, rho, phi, h2o, c, gamma, gvel, m):
+def h2ocont (var, grad, rho, phi, h2o, c, gamma, gvel, k, m):
     
     # continuity for water, separate into liquid and gas parts, also plug 
     mh2o = {'l': { }, 'g': { }, 'vg':{}, 'plug':{}}
@@ -181,14 +181,15 @@ def h2ocont (var, grad, rho, phi, h2o, c, gamma, gvel, m):
     mh2o['g']['dv']     =           gamma['h']*var['phi_g']*rho['g']
     mh2o['g']['dp']     = var['v']* gamma['h']*var['phi_g']*rho['drhog']['dp']
     mh2o['g']['dphi_g'] = var['v']* gamma['h']*             rho['g']
-    mh2o['g']['dmh']    = var['v']*(gamma['h']*var['phi_g']*rho['drhog']['dmh'] + rho['g']*var['phi_g']*gamma['dmh'])
+    mh2o['g']['dmh']    = var['v']*(gamma['h']*var['phi_g']*rho['drhog']['dmh'] + gamma['dmh']*var['phi_g']*rho['g'])
     mh2o['g']['total']  = mh2o['g']['dv']*grad['v']['z'] + mh2o['g']['dp']*grad['p']['z'] + mh2o['g']['dphi_g']*grad['phi_g']['z'] + mh2o['g']['dmh']*grad['mh']['z'] 
 
     # vertical gas escape part 
-    mh2o['vg']['dp']     = gvel['vg']['vel']*mh2o['g']['dp']     + mh2o['g']['dv']*gvel['vg']['dp']
-    mh2o['vg']['dphi_g'] = gvel['vg']['vel']*mh2o['g']['dphi_g'] - mh2o['g']['dv']*gvel['vg']['dphi_g']
-    mh2o['vg']['dmh']    = gvel['vg']['vel']*mh2o['g']['dmh']
-    mh2o['vg']['total']  = mh2o['vg']['dp']*grad['p']['z'] + mh2o['vg']['dphi_g']*grad['phi_g']['z'] + mh2o['vg']['dmh']*grad['mh']['z'] 
+    mh2o['vg']['dvg']    =-gamma['h']*var['phi_g']*rho['g']/m['eta_g']*( k['vert']*grad['p']['z2'] + grad['p']['z']*3*m['kc']*var['phi_g']*var['phi_g']*grad['phi_g']['z'] )
+    mh2o['vg']['dp']     = gvel['vg']['vel']*gamma['h']*var['phi_g']*rho['drhog']['dp']
+    mh2o['vg']['dphi_g'] = gvel['vg']['vel']*gamma['h']*             rho['g']
+    mh2o['vg']['dmh']    = gvel['vg']['vel']*gamma['h']*var['phi_g']*rho['drhog']['dmh'] + gvel['vg']['vel']*gamma['dmh']*var['phi_g']*rho['g']
+    mh2o['vg']['total']  = mh2o['vg']['dp']*grad['p']['z'] + mh2o['vg']['dphi_g']*grad['phi_g']['z'] + mh2o['vg']['dmh']*grad['mh']['z'] + mh2o['vg']['dvg'] 
     
     # lateral gas escape part
     mh2o['ug'] = 2.*gamma['h']*rho['g']*var['phi_g']*gvel['ug']/m['R']
@@ -209,7 +210,7 @@ def h2ocont (var, grad, rho, phi, h2o, c, gamma, gvel, m):
 
 
 
-def co2cont (var, grad, rho, phi, co2, c, gamma, gvel, m):
+def co2cont (var, grad, rho, phi, co2, c, gamma, gvel, k, m):
     
     # continuity for carbon dioxide, separate into liquid and gas parts, also plug 
     mco2 = {'l': { }, 'g': { }, 'vg':{}, 'plug':{}}
@@ -225,14 +226,15 @@ def co2cont (var, grad, rho, phi, co2, c, gamma, gvel, m):
     mco2['g']['dv']     =           gamma['c']*var['phi_g']*rho['g']
     mco2['g']['dp']     = var['v']* gamma['c']*var['phi_g']*rho['drhog']['dp']
     mco2['g']['dphi_g'] = var['v']* gamma['c']*             rho['g']
-    mco2['g']['dmh']    = var['v']*(gamma['c']*var['phi_g']*rho['drhog']['dmh'] - rho['g']*var['phi_g']*gamma['dmh'])
+    mco2['g']['dmh']    = var['v']*(gamma['c']*var['phi_g']*rho['drhog']['dmh'] + rho['g']*var['phi_g']*(-gamma['dmh']))
     mco2['g']['total']  = mco2['g']['dv']*grad['v']['z'] + mco2['g']['dp']*grad['p']['z'] + mco2['g']['dphi_g']*grad['phi_g']['z'] + mco2['g']['dmh']*grad['mh']['z'] 
     
-    #vertical gas escape part 
-    mco2['vg']['dp']    = gvel['vg']['vel']*mco2['g']['dp']     + mco2['g']['dv']*gvel['vg']['dp']
-    mco2['vg']['dphi_g']= gvel['vg']['vel']*mco2['g']['dphi_g'] - mco2['g']['dv']*gvel['vg']['dphi_g']
-    mco2['vg']['dmh']   = gvel['vg']['vel']*mco2['g']['dmh']
-    mco2['vg']['total'] = mco2['vg']['dp']*grad['p']['z'] + mco2['vg']['dphi_g']*grad['phi_g']['z'] + mco2['vg']['dmh']*grad['mh']['z'] 
+    # vertical gas escape part 
+    mco2['vg']['dvg']    =-gamma['c']*var['phi_g']*rho['g']/m['eta_g']*( k['vert']*grad['p']['z2'] + grad['p']['z']*3*m['kc']*var['phi_g']*var['phi_g']*grad['phi_g']['z'] )
+    mco2['vg']['dp']     = gvel['vg']['vel']*gamma['c']*var['phi_g']*rho['drhog']['dp']
+    mco2['vg']['dphi_g'] = gvel['vg']['vel']*gamma['c']*             rho['g']
+    mco2['vg']['dmh']    = gvel['vg']['vel']*gamma['c']*var['phi_g']*rho['drhog']['dmh'] + gvel['vg']['vel']*(-gamma['dmh'])*var['phi_g']*rho['g']
+    mco2['vg']['total']  = mco2['vg']['dp']*grad['p']['z'] + mco2['vg']['dphi_g']*grad['phi_g']['z'] + mco2['vg']['dmh']*grad['mh']['z'] + mco2['vg']['dvg'] 
     
     # lateral gas escape part
     mco2['ug'] = 2*gamma['c']*rho['g']*var['phi_g']*gvel['ug']/m['R']

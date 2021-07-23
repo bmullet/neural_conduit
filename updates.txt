@@ -1,5 +1,14 @@
 Outstanding issues (list in reverse date order)
 
+23 Jul 2021 (YQ)
+- discovered a bug in how I calculated d[rho_g phi_g (vg-v) / (1+Gamma)]/dz
+- the new version requires d2p/dz2. 
+  TODO for Ben: Need to include this in grad dictionary
+  but this is not an output of the model (do this numerically?). 
+  It's a pretty ugly function with a big spike at the plug depth. Gets even
+  uglier if we set phi_gc to be non-zero.
+
+
 10 Jun 2021 (YQ)
 - normalised [ bc_loss = (y - y_true)/y_true ] to ensure variables on the 
   same scale. Previously large physics_loss due to bc_loss in pressure bc.
